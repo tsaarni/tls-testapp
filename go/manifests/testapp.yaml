@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+      - name: server
+        image: localhost/testapp:latest
+        imagePullPolicy: Never
+        command:
+        - "/app/testapp"
+        args:
+        - "server"
+        ports:
+        - containerPort: 8443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - name: client
+        image: localhost/testapp:latest
+        imagePullPolicy: Never
+        command:
+        - "/app/testapp"
+        args:
+        - "client"
+        env:
+        - name: SERVER_URL
+          value: "https://server:8443/test"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+spec:
+  selector:
+    app: server
+  ports:
+  - port: 8443
+    targetPort: 8443

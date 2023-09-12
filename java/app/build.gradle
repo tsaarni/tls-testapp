@@ -1,0 +1,56 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    runtimeOnly 'com.hkupty.penna:penna-core:0.6.2'
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+    implementation 'fi.protonode:certy:0.2.0'
+
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'testapp.App'
+}
+
+task generateCerts(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'testapp.GenerateCerts'
+    args 'testapp'
+}
+
+task server(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'testapp.App'
+    args 'server'
+    jvmArgs '-javaagent:/home/tsaarni/package/tls-testapp/java/extract-tls-secrets/target/extract-tls-secrets-4.1.0-SNAPSHOT.jar=/tmp/wireshark-keys.log'
+    systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
+    systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
+    systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
+    systemProperties['javax.net.ssl.trustStore'] = 'server-truststore.p12'
+    systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
+    systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
+}
+
+task client(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'testapp.App'
+    args 'client'
+    systemProperties['javax.net.ssl.keyStore'] = 'client-keystore.p12'
+    systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
+    systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
+    systemProperties['javax.net.ssl.trustStore'] = 'client-truststore.p12'
+    systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
+    systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
+}

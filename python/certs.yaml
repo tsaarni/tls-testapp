@@ -1,0 +1,11 @@
+subject: cn=server-ca
+---
+subject: cn=server
+issuer: cn=server-ca
+sans:
+- DNS:server.127-0-0-1.nip.io
+---
+subject: cn=client-ca
+---
+subject: cn=client
+issuer: cn=client-ca
