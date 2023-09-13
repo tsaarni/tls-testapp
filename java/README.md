@@ -1,14 +1,43 @@
-# TLS key logging example for Java
+# TLS client server example in Java
+
+This is a simple TLS client server example in Java.
+The client transmits the string `Hello world` periodically to the server and the server echoes the message back.
+The example uses mutual TLS authentication, i.e. both the client and the server authenticate each other using X509 certificates.
+The client and server are implemented in the same file, see [`App.java`](app/src/main/java/testapp/App.java) for the code.
+
 
 ## Pre-requisites
 
-Generate certificates for the testapp using [java-certy](https://github.com/tsaarni/java-certy)
+First run [GenerateCerts.java](app/src/main/java/testapp/GenerateCerts.java), which uses [java-certy](https://github.com/tsaarni/java-certy) library for generating certificates.
 
 ```console
-gradle generateCerts
+$ gradle generateCerts
 ```
 
-Compile Java agent that will extract the TLS secrets
+
+## Running the test application
+
+Run the testapp server and client
+
+```console
+$ gradle server  # run in one terminal
+$ gradle client  # run in another terminal
+```
+
+Capture traffic with Wireshark and observe the TLS handshake.
+
+```console
+$ wireshark  -k -i lo -f "port 9090"
+```
+
+
+## TLS decryption
+
+The TLS master secrets can be intercepted by a Java agent and logged into a file.
+This file can then be used by Wireshark to decrypt the TLS traffic.
+
+In this example, we use the agent [extract-tls-secrets](https://github.com/neykov/extract-tls-secrets), courtesy of [@neykov](https://github.com/neykov).
+First, compile the Java agent that will extract the TLS secrets
 
 ```console
 $ git clone https://github.com/neykov/extract-tls-secrets.git
@@ -16,25 +45,39 @@ $ cd extract-tls-secrets
 $ mvn package
 ```
 
-The compiled JAR will be in `target/extract-tls-secrets-4.1.0-SNAPSHOT.jar`
+Note that you might need to change the Java version in the `pom.xml`, for example:
 
+```diff
+index 8ce6187..fbbacfb 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -38,8 +38,8 @@
 
+   <properties>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+-    <maven.compiler.source>1.6</maven.compiler.source>
+-    <maven.compiler.target>1.6</maven.compiler.target>
++    <maven.compiler.source>1.7</maven.compiler.source>
++    <maven.compiler.target>1.7</maven.compiler.target>
+   </properties>
 
-## Running the testapp
-
-Run the testapp server and client
-
-```console
-$ gradle server  # in one terminal
-$ gradle client  # in another terminal
+   <dependencies>
 ```
 
-The server app will be automatically started with the agent.
+The compiled JAR will be in `target/extract-tls-secrets-4.1.0-SNAPSHOT.jar`.
+To run the server with the agent attached, use the following command
+
+```console
+$ gradle serverWithAgent
+```
+
+See [build.gradle](app/build.gradle) for the details.
+The example intercepts the TLS master secrets from the server, but the same can be done for the client.
 
 Decrypt the TLS traffic in Wireshark by providing the path to the log file
 
 ```console
-$ sudo wireshark -i lo -k -f "port 9090" -o tls.keylog_file:/tmp/wireshark-keys.log
+$ wireshark -i lo -k -f "port 9090" -o tls.keylog_file:/tmp/wireshark-keys.log
 ```
 
 Alternatively, the agent can also be attached to a running JVM process
@@ -42,3 +85,5 @@ Alternatively, the agent can also be attached to a running JVM process
 ```console
 java -jar ./target/extract-tls-secrets-4.1.0-SNAPSHOT.jar <PID> /tmp/wireshark-keys.log
 ```
+
+Note that Wireshark must capture the traffic beginning from the handshake, otherwise, it cannot decrypt the traffic.

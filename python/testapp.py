@@ -1,13 +1,14 @@
 #!/bin/env python3
 
-import logging
-import http.server
 import http.client
+import http.server
+import logging
 import ssl
 import sys
+import time
+
 
 class TestApp:
-
 
     def __init__(self):
         pass
@@ -17,8 +18,10 @@ class TestApp:
         port = 8443
 
         class MyHandler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                logging.info(f"{self.client_address[0]} - - [{self.log_date_time_string()}] {format % args}")
+
             def do_GET(self):
-                logging.debug('GET request received from %s' % self.client_address[0])
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
@@ -27,8 +30,10 @@ class TestApp:
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile='certs/server.pem', keyfile='certs/server-key.pem')
         ssl_context.load_verify_locations(cafile='certs/client-ca.pem')
+        # Force TLSv1.2 for better visibility of the TLS handshake.
+        # ssl_context.maximum_version = ssl.TLSVersion.TLSv1_2
 
-        logging.debug('Starting server on %s:%d' % (address, port))
+        logging.info(f'Starting server on {address}:{port}')
         server = http.server.HTTPServer((address, port), MyHandler)
         server.socket = ssl_context.wrap_socket(server.socket, server_side=True)
         server.serve_forever()
@@ -41,10 +46,13 @@ class TestApp:
         ssl_context.load_cert_chain(certfile='certs/client.pem', keyfile='certs/client-key.pem')
         ssl_context.load_verify_locations(cafile='certs/server-ca.pem')
 
-        conn = http.client.HTTPSConnection(address, port, context=ssl_context)
-        conn.request('GET', '/')
-        response = conn.getresponse()
-        print(response.read().decode())
+        while True:
+            conn = http.client.HTTPSConnection(address, port, context=ssl_context)
+            conn.request('GET', '/')
+            response = conn.getresponse()
+            logging.info(f'Received response: {response.read().decode()}')
+            conn.close()
+            time.sleep(5)
 
 
 def main():
@@ -59,8 +67,7 @@ def main():
     elif sys.argv[1] == 'client':
         TestApp().client()
     else:
-        logging.error('Invalid argument: %s' % sys.argv[1])
-
+        logging.error(f'Invalid argument: {sys.argv[1]}')
 
 
 if __name__ == '__main__':

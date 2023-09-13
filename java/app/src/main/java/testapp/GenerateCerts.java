@@ -12,7 +12,6 @@ import fi.protonode.certy.Credential;
 
 public class GenerateCerts {
 
-    // main() method
     public static void main(String[] args) {
 
         try {

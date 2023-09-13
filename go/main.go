@@ -42,8 +42,9 @@ func server() {
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    caCertPool,
-		MaxVersion:   tls.VersionTLS12,
 		KeyLogWriter: f,
+		// Force TLSv1.2 for better visibility of the TLS handshake.
+		MaxVersion: tls.VersionTLS12,
 	}
 
 	address := "0.0.0.0:8443"

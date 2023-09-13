@@ -52,7 +52,8 @@ public class App {
         SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
         try (SSLServerSocket sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port)) {
 
-            sslServerSocket.setEnabledProtocols(new String[] { "TLSv1.2" });
+            // Force TLSv1.2 for better visibility of the TLS handshake.
+            // sslServerSocket.setEnabledProtocols(new String[] { "TLSv1.2" });
             sslServerSocket.setNeedClientAuth(true);
 
             log.info("Server started on port {}", sslServerSocket.getLocalPort());
