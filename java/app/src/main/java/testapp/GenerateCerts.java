@@ -8,6 +8,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 
+import fi.protonode.certy.CertificateRevocationList;
 import fi.protonode.certy.Credential;
 
 public class GenerateCerts {
@@ -20,6 +21,11 @@ public class GenerateCerts {
             Credential clientCa = new Credential().subject("CN=client-ca");
             Credential server = new Credential().subject("CN=server").issuer(serverCa)
                     .subjectAltName("DNS:server.127-0-0-1.nip.io");
+            Credential revokedServer = new Credential().subject("CN=revoked-server")
+                    .issuer(serverCa)
+                    .subjectAltName("DNS:server.127-0-0-1.nip.io")
+                    .crlDistributionPointUri("http://ca.127-0-0-1.nip.io:8080/server-ca-crl.pem");
+
             Credential client = new Credential().subject("CN=client").issuer(clientCa);
 
             // Generate trust and keystore files for the server
@@ -33,6 +39,12 @@ public class GenerateCerts {
             serverKeystore.setKeyEntry("server", server.getPrivateKey(), "secret".toCharArray(), server.getCertificates());
             serverKeystore.store(Files.newOutputStream(Paths.get("server-keystore.p12")), "secret".toCharArray());
 
+            KeyStore revokedServerKeystore = KeyStore.getInstance("PKCS12");
+            revokedServerKeystore.load(null, null);
+            revokedServerKeystore.setKeyEntry("server", revokedServer.getPrivateKey(), "secret".toCharArray(), revokedServer.getCertificates());
+            revokedServerKeystore.store(Files.newOutputStream(Paths.get("revoked-server-keystore.p12")), "secret".toCharArray());
+
+            new CertificateRevocationList().add(revokedServer).writeAsPem(Paths.get("server-ca-crl.pem"));
 
             // Generate trust and keystore files for the client
             KeyStore clientTruststore = KeyStore.getInstance("PKCS12");

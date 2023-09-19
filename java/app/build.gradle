@@ -4,14 +4,18 @@ plugins {
 
 repositories {
     mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
 }
 
 dependencies {
     runtimeOnly 'org.logevents:logevents:0.5.2'
     implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
-    implementation 'fi.protonode:certy:0.2.0'
-
+    implementation name: 'certy-0.3.0-SNAPSHOT', ext: 'jar'
+    runtimeOnly 'org.bouncycastle:bcpkix-jdk18on:1.76'
 }
+
 
 java {
     toolchain {
@@ -33,7 +37,7 @@ task server(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     main = 'testapp.App'
     args 'server'
-    systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
+    systemProperties['javax.net.ssl.keyStore'] = 'revoked-server-keystore.p12'
     systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
     systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
     systemProperties['javax.net.ssl.trustStore'] = 'server-truststore.p12'
@@ -46,7 +50,7 @@ task serverWithAgent(type: JavaExec) {
     main = 'testapp.App'
     args 'server'
     jvmArgs "-javaagent:${rootDir}/extract-tls-secrets/target/extract-tls-secrets-4.1.0-SNAPSHOT.jar=/tmp/wireshark-keys.log"
-    systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
+    systemProperties['javax.net.ssl.keyStore'] = 'revoked-server-keystore.p12'
     systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
     systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
     systemProperties['javax.net.ssl.trustStore'] = 'server-truststore.p12'
