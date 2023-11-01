@@ -37,34 +37,12 @@ The TLS master secrets can be intercepted by a Java agent and logged into a file
 This file can then be used by Wireshark to decrypt the TLS traffic.
 
 In this example, we use the agent [extract-tls-secrets](https://github.com/neykov/extract-tls-secrets), courtesy of [@neykov](https://github.com/neykov).
-First, compile the Java agent that will extract the TLS secrets
+You can compile the agent from source code or download the pre-compiled JAR by running
 
 ```console
-$ git clone https://github.com/neykov/extract-tls-secrets.git
-$ cd extract-tls-secrets
-$ mvn package
+$ gradle downloadAgent
 ```
 
-Note that you might need to change the Java version in the `pom.xml`, for example:
-
-```diff
-index 8ce6187..fbbacfb 100644
---- a/pom.xml
-+++ b/pom.xml
-@@ -38,8 +38,8 @@
-
-   <properties>
-     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
--    <maven.compiler.source>1.6</maven.compiler.source>
--    <maven.compiler.target>1.6</maven.compiler.target>
-+    <maven.compiler.source>1.7</maven.compiler.source>
-+    <maven.compiler.target>1.7</maven.compiler.target>
-   </properties>
-
-   <dependencies>
-```
-
-The compiled JAR will be in `target/extract-tls-secrets-4.1.0-SNAPSHOT.jar`.
 To run the server with the agent attached, use the following command
 
 ```console
@@ -83,7 +61,7 @@ $ wireshark -i lo -k -f "port 9090" -o tls.keylog_file:/tmp/wireshark-keys.log
 Alternatively, the agent can also be attached to a running JVM process
 
 ```console
-java -jar ./target/extract-tls-secrets-4.1.0-SNAPSHOT.jar <PID> /tmp/wireshark-keys.log
+java -jar app/build/extract-tls-secrets-4.0.0.jar <PID> /tmp/wireshark-keys.log
 ```
 
 Note that Wireshark must capture the traffic beginning from the handshake, otherwise, it cannot decrypt the traffic.
