@@ -1,0 +1,5 @@
+.cache
+*.o
+testapp
+compile_commands.json
+wireshark-keylog.txt
