@@ -8,4 +8,4 @@ issuer: cn=client-ca
 subject: cn=server
 issuer: cn=server-ca
 sans:
-- DNS:localhost
+  - DNS:localhost

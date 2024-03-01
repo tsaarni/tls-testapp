@@ -21,9 +21,9 @@
 #define KEYLOG_FILE "wireshark-keylog.txt"
 
 // Allocate a thread-local variable for the thread name.
-_Thread_local char *thread_name = "unknown";
+_Thread_local char *thread_name = "main";
 
-int create_socket(char *hostname, int port, struct addrinfo **res) {
+int create_socket(char *hostname, int port, struct sockaddr_in *addr) {
     DEBUG("Creating socket");
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -32,18 +32,16 @@ int create_socket(char *hostname, int port, struct addrinfo **res) {
         exit(EXIT_FAILURE);
     }
 
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-
-    char port_str[6];
-    snprintf(port_str, sizeof(port_str), "%d", port);
-
-    if (getaddrinfo(hostname, port_str, &hints, res) != 0) {
-        PERROR("getaddrinfo");
-        exit(EXIT_FAILURE);
+    struct hostent *host = gethostbyname(hostname);
+    if (host == NULL) {
+        close(sock);
+        return -1;
     }
+
+    memset(addr, 0, sizeof(*addr));
+    addr->sin_family = host->h_addrtype;
+    addr->sin_port = htons(port);
+    memcpy(&addr->sin_addr.s_addr, host->h_addr, host->h_length);
 
     return sock;
 }
@@ -100,6 +98,20 @@ void print_peer_cert_info(SSL *ssl) {
     BIO_get_mem_data(bio, &subject);
     DEBUG("Subject: %s", subject);
 
+    // Print the certificate subject alt name
+    GENERAL_NAMES *names =
+        X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+    if (names) {
+        for (int i = 0; i < sk_GENERAL_NAME_num(names); i++) {
+            GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
+            if (name->type == GEN_DNS) {
+                char *dns_name = (char *)ASN1_STRING_get0_data(name->d.dNSName);
+                DEBUG("Subject alt name: %s", dns_name);
+            }
+        }
+        GENERAL_NAMES_free(names);
+    }
+
     BIO_free_all(bio);
     X509_free(cert);
 }
@@ -112,45 +124,60 @@ void *run_client(void *arg) {
     SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
     if (!ctx) {
         PERROR("SSL_CTX_new");
-        return NULL;
+        goto clenup;
     }
 
     SSL_CTX_set_keylog_callback(ctx, keylog_callback);
 
     if (load_credentials(ctx, "client.pem", "client-key.pem") != 0) {
-        return NULL;
+        goto clenup;
     }
 
     if (!SSL_CTX_load_verify_locations(ctx, "server-ca.pem", NULL)) {
         PERROR("SSL_CTX_load_verify_locations");
-        return NULL;
+        goto clenup;
     }
 
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 
     DEBUG("Connecting to %s:%d", SERVER_ADDR, SERVER_PORT);
 
-    struct addrinfo *res;
-    int sock = create_socket(SERVER_ADDR, SERVER_PORT, &res);
+    struct sockaddr_in addr;
+    int sock = create_socket(SERVER_ADDR, SERVER_PORT, &addr);
 
-    // Retry connection until success
-    while (connect(sock, res->ai_addr, res->ai_addrlen) != 0) {
+    // Retry connection until success.
+    while (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
         PERROR("Attempting reconnect...");
         usleep(100000);
     }
-    freeaddrinfo(res);
 
     SSL *ssl = SSL_new(ctx);
     if (!ssl) {
         PERROR("SSL_new");
-        return NULL;
+        goto clenup;
     }
     SSL_set_fd(ssl, sock);
+
+    // Set the SNI extension.
+    if (SSL_set_tlsext_host_name(ssl, SERVER_ADDR) != 1) {
+        PERROR("SSL_set_tlsext_host_name");
+        goto clenup;
+    }
+
+    // Check the server's certificate against the hostname.
+    if (SSL_set1_host(ssl, SERVER_ADDR) != 1) {
+        PERROR("SSL_set1_host");
+        goto clenup;
+    }
 
     DEBUG("SSL_connect");
     if (SSL_connect(ssl) <= 0) {
         PERROR("SSL_connect");
-        return NULL;
+        if (SSL_get_verify_result(ssl) != X509_V_OK) {
+            ERROR("Certificate verification failed: %s",
+                  X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
+        }
+        goto clenup;
     }
 
     DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl),
@@ -158,37 +185,28 @@ void *run_client(void *arg) {
 
     print_peer_cert_info(ssl);
 
-    if (SSL_get_verify_result(ssl) != X509_V_OK) {
-        PERROR("SSL_get_verify_result");
-        return NULL;
-    }
-
-    X509 *cert = SSL_get_peer_certificate(ssl);
-    if (!cert) {
-        PERROR("SSL_get_peer_certificate");
-        return NULL;
-    }
-
-    if (X509_check_host(cert, SERVER_ADDR, 0, 0, NULL) != 1) {
-        DEBUG("Certificate does not match the server hostname");
-        return NULL;
-    }
-
     DEBUG("Sending: Hello, world!");
-    int len = SSL_write(ssl, "Hello, world!", 13);
-    if (len < 0) {
-        PERROR("SSL_write");
-        return NULL;
+    char *msg = "Hello, world!";
+    size_t written;
+    if (SSL_write_ex(ssl, msg, strlen(msg), &written) != 1) {
+        PERROR("SSL_write_ex");
+        goto clenup;
     }
 
     // TLSv1.3: we need to read (at least) 0 bytes to complete the handshake.
-    len = SSL_read(ssl, NULL, 0);
+    SSL_read_ex(ssl, NULL, 0, NULL);
 
+    if (SSL_shutdown(ssl) < 0) {
+        PERROR("SSL_shutdown");
+        goto clenup;
+    }
+
+clenup:
     SSL_free(ssl);
     close(sock);
     SSL_CTX_free(ctx);
 
-    return 0;
+    return NULL;
 }
 
 void *run_server(void *arg) {
@@ -199,90 +217,95 @@ void *run_server(void *arg) {
     SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
     if (!ctx) {
         PERROR("SSL_CTX_new");
-        return NULL;
+        goto cleanup;
     }
 
     SSL_CTX_set_keylog_callback(ctx, keylog_callback);
 
     if (set_min_max_proto_versions(ctx, TLS1_2_VERSION, TLS1_3_VERSION) != 0) {
-        return NULL;
+        goto cleanup;
     }
 
     if (load_credentials(ctx, "server.pem", "server-key.pem") != 0) {
-        return NULL;
+        goto cleanup;
     }
 
     if (!SSL_CTX_load_verify_locations(ctx, "client-ca.pem", NULL)) {
         PERROR("SSL_CTX_load_verify_locations");
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
                        NULL);
 
-    struct addrinfo *res;
-    int sock = create_socket(SERVER_ADDR, SERVER_PORT, &res);
-    if (bind(sock, res->ai_addr, res->ai_addrlen) != 0) {
+    struct sockaddr_in server_addr;
+    int sock = create_socket(SERVER_ADDR, SERVER_PORT, &server_addr);
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
         PERROR("bind");
-        return NULL;
+        goto cleanup;
     }
-    freeaddrinfo(res);
 
     DEBUG("Listening on %s:%d", SERVER_ADDR, SERVER_PORT);
     if (listen(sock, 1) != 0) {
         PERROR("listen");
-        return NULL;
+        goto cleanup;
     }
 
-    struct sockaddr_in addr;
-    socklen_t addr_len = sizeof(addr);
-    int client_sock = accept(sock, (struct sockaddr *)&addr, &addr_len);
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_len = sizeof(client_addr);
+    int client_sock =
+        accept(sock, (struct sockaddr *)&client_addr, &client_addr_len);
     if (client_sock < 0) {
         PERROR("accept");
-        return NULL;
+        goto cleanup;
     }
 
-    DEBUG("Client connected from %s:%d", inet_ntoa(addr.sin_addr),
-          ntohs(addr.sin_port));
+    DEBUG("Client connected from %s:%d", inet_ntoa(client_addr.sin_addr),
+          ntohs(client_addr.sin_port));
 
     SSL *ssl = SSL_new(ctx);
     if (!ssl) {
         PERROR("SSL_new");
-        return NULL;
+        goto cleanup;
     }
     SSL_set_fd(ssl, client_sock);
 
     DEBUG("SSL_accept");
     if (SSL_accept(ssl) <= 0) {
         PERROR("SSL_accept");
-        return NULL;
+        if (SSL_get_verify_result(ssl) != X509_V_OK) {
+            ERROR("Certificate verification failed: %s",
+                  X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
+        }
+        goto cleanup;
     }
 
     print_peer_cert_info(ssl);
-
-    if (SSL_get_verify_result(ssl) != X509_V_OK) {
-        PERROR("SSL_get_verify_result");
-        return NULL;
-    }
 
     DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl),
           SSL_get_cipher(ssl));
 
     char buf[1024];
-    int len = SSL_read(ssl, buf, sizeof(buf) - 1);
-    if (len < 0) {
-        PERROR("SSL_read");
-        return NULL;
+    size_t len;
+    if (SSL_read_ex(ssl, buf, sizeof(buf), &len) != 1) {
+        PERROR("SSL_read_ex");
+        goto cleanup;
     }
+
     buf[len] = '\0';
     DEBUG("Received: %s", buf);
 
+    if (SSL_shutdown(ssl) < 0) {
+        PERROR("SSL_shutdown");
+        goto cleanup;
+    }
+
+cleanup:
     SSL_free(ssl);
     close(client_sock);
     close(sock);
     SSL_CTX_free(ctx);
-
-    return 0;
+    return NULL;
 }
 
 int main() {
@@ -295,7 +318,7 @@ int main() {
     pthread_join(client_thread, NULL);
     pthread_join(server_thread, NULL);
 
-	DEBUG("Server and client threads have finished. Exiting.");
+    DEBUG("Server and client threads have finished. Exiting.");
 
     return 0;
 }

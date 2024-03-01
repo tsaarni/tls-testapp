@@ -1,5 +1,5 @@
 
-CFLAGS = -Wall -Wextra -Werror -g -O0
+CFLAGS ?= -Wall -Wextra -Werror -g -O0
 
 all: testapp
 

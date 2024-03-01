@@ -6,6 +6,7 @@
 #define DEBUG_SET_THREAD_NAME(name) thread_name = name
 
 #define DEBUG(fmt, ...) LOGGER(fmt, "DEBUG", ##__VA_ARGS__)
+#define ERROR(fmt, ...) LOGGER(fmt, "ERROR", ##__VA_ARGS__)
 #define PERROR(fmt, ...)                                                       \
     do {                                                                       \
         unsigned long openssl_err = ERR_get_error();                           \
