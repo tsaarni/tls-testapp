@@ -1,3 +1,5 @@
+// https://www.openssl.org/docs/man3.2/man7/ossl-guide-introduction.html
+
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -99,8 +101,7 @@ void print_peer_cert_info(SSL *ssl) {
     DEBUG("Subject: %s", subject);
 
     // Print the certificate subject alt name
-    GENERAL_NAMES *names =
-        X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
+    GENERAL_NAMES *names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
     if (names) {
         for (int i = 0; i < sk_GENERAL_NAME_num(names); i++) {
             GENERAL_NAME *name = sk_GENERAL_NAME_value(names, i);
@@ -116,10 +117,19 @@ void print_peer_cert_info(SSL *ssl) {
     X509_free(cert);
 }
 
+// Enable partial chain validation.
+void enable_partial_chain_validation(SSL_CTX *ctx) {
+    X509_VERIFY_PARAM *param = SSL_CTX_get0_param(ctx);
+    X509_VERIFY_PARAM_set_flags(param, X509_V_FLAG_PARTIAL_CHAIN);
+    SSL_CTX_set1_param(ctx, param);
+}
+
 void *run_client(void *arg) {
     (void)arg;
 
     DEBUG_SET_THREAD_NAME("client");
+
+    SSL *ssl = NULL;
 
     SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
     if (!ctx) {
@@ -127,17 +137,21 @@ void *run_client(void *arg) {
         goto clenup;
     }
 
+    // Enable key logging for Wireshark.
     SSL_CTX_set_keylog_callback(ctx, keylog_callback);
 
     if (load_credentials(ctx, "client.pem", "client-key.pem") != 0) {
         goto clenup;
     }
 
-    if (!SSL_CTX_load_verify_locations(ctx, "server-ca.pem", NULL)) {
+    if (!SSL_CTX_load_verify_locations(ctx, "server-sub-ca.pem", NULL)) {
         PERROR("SSL_CTX_load_verify_locations");
         goto clenup;
     }
 
+    enable_partial_chain_validation(ctx);
+
+    // Require the server to present a certificate.
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 
     DEBUG("Connecting to %s:%d", SERVER_ADDR, SERVER_PORT);
@@ -151,14 +165,14 @@ void *run_client(void *arg) {
         usleep(100000);
     }
 
-    SSL *ssl = SSL_new(ctx);
+    ssl = SSL_new(ctx);
     if (!ssl) {
         PERROR("SSL_new");
         goto clenup;
     }
     SSL_set_fd(ssl, sock);
 
-    // Set the SNI extension.
+    // Set the hostname to the SNI extension.
     if (SSL_set_tlsext_host_name(ssl, SERVER_ADDR) != 1) {
         PERROR("SSL_set_tlsext_host_name");
         goto clenup;
@@ -174,14 +188,12 @@ void *run_client(void *arg) {
     if (SSL_connect(ssl) <= 0) {
         PERROR("SSL_connect");
         if (SSL_get_verify_result(ssl) != X509_V_OK) {
-            ERROR("Certificate verification failed: %s",
-                  X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
+            ERROR("Certificate verification failed: %s", X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
         }
         goto clenup;
     }
 
-    DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl),
-          SSL_get_cipher(ssl));
+    DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl), SSL_get_cipher(ssl));
 
     print_peer_cert_info(ssl);
 
@@ -214,6 +226,8 @@ void *run_server(void *arg) {
 
     DEBUG_SET_THREAD_NAME("server");
 
+    SSL *ssl = NULL;
+
     SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
     if (!ctx) {
         PERROR("SSL_CTX_new");
@@ -235,8 +249,8 @@ void *run_server(void *arg) {
         goto cleanup;
     }
 
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                       NULL);
+    // Require the client to present a certificate.
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
     struct sockaddr_in server_addr;
     int sock = create_socket(SERVER_ADDR, SERVER_PORT, &server_addr);
@@ -253,17 +267,15 @@ void *run_server(void *arg) {
 
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
-    int client_sock =
-        accept(sock, (struct sockaddr *)&client_addr, &client_addr_len);
+    int client_sock = accept(sock, (struct sockaddr *)&client_addr, &client_addr_len);
     if (client_sock < 0) {
         PERROR("accept");
         goto cleanup;
     }
 
-    DEBUG("Client connected from %s:%d", inet_ntoa(client_addr.sin_addr),
-          ntohs(client_addr.sin_port));
+    DEBUG("Client connected from %s:%d", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
-    SSL *ssl = SSL_new(ctx);
+    ssl = SSL_new(ctx);
     if (!ssl) {
         PERROR("SSL_new");
         goto cleanup;
@@ -274,16 +286,14 @@ void *run_server(void *arg) {
     if (SSL_accept(ssl) <= 0) {
         PERROR("SSL_accept");
         if (SSL_get_verify_result(ssl) != X509_V_OK) {
-            ERROR("Certificate verification failed: %s",
-                  X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
+            ERROR("Certificate verification failed: %s", X509_verify_cert_error_string(SSL_get_verify_result(ssl)));
         }
         goto cleanup;
     }
 
     print_peer_cert_info(ssl);
 
-    DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl),
-          SSL_get_cipher(ssl));
+    DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl), SSL_get_cipher(ssl));
 
     char buf[1024];
     size_t len;

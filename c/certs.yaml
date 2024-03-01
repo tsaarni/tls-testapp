@@ -2,10 +2,14 @@ subject: cn=client-ca
 ---
 subject: cn=server-ca
 ---
+subject: cn=server-sub-ca
+ca: true
+issuer: cn=server-ca
+---
 subject: cn=client
 issuer: cn=client-ca
 ---
 subject: cn=server
-issuer: cn=server-ca
+issuer: cn=server-sub-ca
 sans:
   - DNS:localhost
