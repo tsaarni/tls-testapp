@@ -1,4 +1,6 @@
 
+CFLAGS = -Wall -Wextra -Werror -g -O0
+
 all: testapp
 
 testapp: testapp.o
@@ -15,3 +17,7 @@ certs:
 
 clean:
 	rm -f testapp *.o *.pem
+
+
+vscode_compile_commands: clean
+	bear -- make testapp

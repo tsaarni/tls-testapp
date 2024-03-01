@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <openssl/err.h>
@@ -24,7 +25,7 @@ int create_socket(char *hostname, int port, struct addrinfo **res) {
 
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		perror("socket");
+		PERROR("socket");
 		exit(EXIT_FAILURE);
 	}
 
@@ -37,7 +38,7 @@ int create_socket(char *hostname, int port, struct addrinfo **res) {
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
 	if (getaddrinfo(hostname, port_str, &hints, res) != 0) {
-		perror("getaddrinfo");
+		PERROR("getaddrinfo");
 		exit(EXIT_FAILURE);
 	}
 
@@ -46,12 +47,12 @@ int create_socket(char *hostname, int port, struct addrinfo **res) {
 
 int load_credentials(SSL_CTX *ctx, char *cert_file, char *key_file) {
 	if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0) {
-		print_ssl_error("SSL_CTX_use_certificate_file");
+		PERROR("SSL_CTX_use_certificate_file");
 		return -1;
 	}
 
 	if (SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM) <= 0) {
-		print_ssl_error("SSL_CTX_use_PrivateKey_file");
+		PERROR("SSL_CTX_use_PrivateKey_file");
 		return -1;
 	}
 
@@ -60,12 +61,12 @@ int load_credentials(SSL_CTX *ctx, char *cert_file, char *key_file) {
 
 int set_min_max_proto_versions(SSL_CTX *ctx, int min_version, int max_version) {
 	if (SSL_CTX_set_min_proto_version(ctx, min_version) != 1) {
-		print_ssl_error("SSL_CTX_set_min_proto_version");
+		PERROR("SSL_CTX_set_min_proto_version");
 		return -1;
 	}
 
 	if (SSL_CTX_set_max_proto_version(ctx, max_version) != 1) {
-		print_ssl_error("SSL_CTX_set_max_proto_version");
+		PERROR("SSL_CTX_set_max_proto_version");
 		return -1;
 	}
 
@@ -73,9 +74,11 @@ int set_min_max_proto_versions(SSL_CTX *ctx, int min_version, int max_version) {
 }
 
 void keylog_callback(const SSL *ssl, const char *line) {
+	(void)ssl;
+
 	FILE *file = fopen(KEYLOG_FILE, "a");
 	if (!file) {
-		perror("fopen");
+		PERROR("fopen");
 		return;
 	}
 
@@ -91,7 +94,7 @@ void print_peer_cert_info(SSL *ssl) {
 	X509_NAME_print_ex(bio, name, 0, XN_FLAG_RFC2253);
 
 	char *subject = NULL;
-	long len = BIO_get_mem_data(bio, &subject);
+	BIO_get_mem_data(bio, &subject);
 	DEBUG("Subject: %s", subject);
 
 	BIO_free(bio);
@@ -99,6 +102,8 @@ void print_peer_cert_info(SSL *ssl) {
 }
 
 void *run_client(void *arg) {
+	(void)arg;
+
 	DEBUG_SET_THREAD_NAME("client");
 
 	SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
@@ -114,7 +119,7 @@ void *run_client(void *arg) {
 	}
 
 	if (!SSL_CTX_load_verify_locations(ctx, "server-ca.pem", NULL)) {
-		print_ssl_error("SSL_CTX_load_verify_locations");
+		PERROR("SSL_CTX_load_verify_locations");
 		return NULL;
 	}
 
@@ -124,21 +129,23 @@ void *run_client(void *arg) {
 
 	struct addrinfo *res;
 	int sock = create_socket(SERVER_ADDR, SERVER_PORT, &res);
-	if (connect(sock, res->ai_addr, res->ai_addrlen) != 0) {
-		perror("connect");
-		return NULL;
+
+	// Retry connection until success
+	while (connect(sock, res->ai_addr, res->ai_addrlen) != 0) {
+		PERROR("Attempting reconnect...");
+		usleep(100000);
 	}
 
 	SSL *ssl = SSL_new(ctx);
 	if (!ssl) {
-		perror("SSL_new");
+		PERROR("SSL_new");
 		return NULL;
 	}
 	SSL_set_fd(ssl, sock);
 
 	DEBUG("SSL_connect");
 	if (SSL_connect(ssl) <= 0) {
-		print_ssl_error("SSL_connect");
+		PERROR("SSL_connect");
 		return NULL;
 	}
 
@@ -148,13 +155,13 @@ void *run_client(void *arg) {
 	print_peer_cert_info(ssl);
 
 	if (SSL_get_verify_result(ssl) != X509_V_OK) {
-		print_ssl_error("SSL_get_verify_result");
+		PERROR("SSL_get_verify_result");
 		return NULL;
 	}
 
 	X509 *cert = SSL_get_peer_certificate(ssl);
 	if (!cert) {
-		print_ssl_error("SSL_get_peer_certificate");
+		PERROR("SSL_get_peer_certificate");
 		return NULL;
 	}
 
@@ -166,7 +173,7 @@ void *run_client(void *arg) {
 	DEBUG("Sending: Hello, world!");
 	int len = SSL_write(ssl, "Hello, world!", 13);
 	if (len < 0) {
-		print_ssl_error("SSL_write");
+		PERROR("SSL_write");
 		return NULL;
 	}
 
@@ -181,11 +188,13 @@ void *run_client(void *arg) {
 }
 
 void *run_server(void *arg) {
+	(void)arg;
+
 	DEBUG_SET_THREAD_NAME("server");
 
 	SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
 	if (!ctx) {
-		perror("SSL_CTX_new");
+		PERROR("SSL_CTX_new");
 		return NULL;
 	}
 
@@ -200,7 +209,7 @@ void *run_server(void *arg) {
 	}
 
 	if (!SSL_CTX_load_verify_locations(ctx, "client-ca.pem", NULL)) {
-		print_ssl_error("SSL_CTX_load_verify_locations");
+		PERROR("SSL_CTX_load_verify_locations");
 		exit(EXIT_FAILURE);
 	}
 
@@ -210,13 +219,13 @@ void *run_server(void *arg) {
 	struct addrinfo *res;
 	int sock = create_socket(SERVER_ADDR, SERVER_PORT, &res);
 	if (bind(sock, res->ai_addr, res->ai_addrlen) != 0) {
-		perror("bind");
+		PERROR("bind");
 		return NULL;
 	}
 
 	DEBUG("Listening on %s:%d", SERVER_ADDR, SERVER_PORT);
 	if (listen(sock, 1) != 0) {
-		perror("listen");
+		PERROR("listen");
 		return NULL;
 	}
 
@@ -233,21 +242,21 @@ void *run_server(void *arg) {
 
 	SSL *ssl = SSL_new(ctx);
 	if (!ssl) {
-		perror("SSL_new");
+		PERROR("SSL_new");
 		return NULL;
 	}
 	SSL_set_fd(ssl, client_sock);
 
 	DEBUG("SSL_accept");
 	if (SSL_accept(ssl) <= 0) {
-		print_ssl_error("SSL_accept");
+		PERROR("SSL_accept");
 		return NULL;
 	}
 
 	print_peer_cert_info(ssl);
 
 	if (SSL_get_verify_result(ssl) != X509_V_OK) {
-		print_ssl_error("SSL_get_verify_result");
+		PERROR("SSL_get_verify_result");
 		return NULL;
 	}
 
@@ -257,7 +266,7 @@ void *run_server(void *arg) {
 	char buf[1024];
 	int len = SSL_read(ssl, buf, sizeof(buf) - 1);
 	if (len < 0) {
-		print_ssl_error("SSL_read");
+		PERROR("SSL_read");
 		return NULL;
 	}
 	buf[len] = '\0';
@@ -271,7 +280,7 @@ void *run_server(void *arg) {
 	return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main() {
 	pthread_t server_thread;
 	pthread_create(&server_thread, NULL, run_server, NULL);
 
