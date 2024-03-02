@@ -11,5 +11,8 @@ issuer: cn=client-ca
 ---
 subject: cn=server
 issuer: cn=server-sub-ca
+#not_before: 2020-01-01T09:00:00Z
+#not_after: 2020-02-01T10:10:10Z
 sans:
   - DNS:localhost
+#  - DNS:unexpected-name
