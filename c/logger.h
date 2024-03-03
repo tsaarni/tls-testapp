@@ -29,7 +29,6 @@
     do {                                                                                                               \
         time_t t = time(NULL);                                                                                         \
         struct tm tm = *localtime(&t);                                                                                 \
-        fprintf(stderr, "%d-%02d-%02dT%02d:%02d:%02d %s:%d " level ": " fmt "\n", tm.tm_year + 1900,              \
-                tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, __FILE__, __LINE__,          \
-                ##__VA_ARGS__);                                                                                        \
+        fprintf(stderr, "%d-%02d-%02dT%02d:%02d:%02d %s:%d " level ": " fmt "\n", tm.tm_year + 1900, tm.tm_mon + 1,    \
+                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, __FILE__, __LINE__, ##__VA_ARGS__);                      \
     } while (0)

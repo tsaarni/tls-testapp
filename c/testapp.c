@@ -15,6 +15,14 @@
 #define SERVER_ADDR "localhost"
 #define SERVER_PORT 9876
 
+#define CLIENT_CA_FILE "server-sub-ca.pem"
+#define CLIENT_CERT_FILE "client.pem"
+#define CLIENT_KEY_FILE "client-key.pem"
+
+#define SERVER_CA_FILE "client-ca.pem"
+#define SERVER_CERT_FILE "server.pem"
+#define SERVER_KEY_FILE "server-key.pem"
+
 #define KEYLOG_FILE "wireshark-keys.log"
 
 // Debug level logs are disabled by default.
@@ -90,7 +98,7 @@ void print_peer_cert_info(SSL *ssl) {
     BIO *bio = NULL;
     X509 *cert = SSL_get_peer_certificate(ssl);
     if (!cert) {
-        ERROR("No peer certificate");
+        INFO("No peer certificate provided");
         goto cleanup;
     }
 
@@ -141,13 +149,13 @@ void run_client() {
     // Enable key logging for Wireshark.
     SSL_CTX_set_keylog_callback(ctx, keylog_callback);
 
-    if (load_credentials(ctx, "client.pem", "client-key.pem") != 0) {
+    if (load_credentials(ctx, CLIENT_CERT_FILE, CLIENT_KEY_FILE) != 0) {
         goto cleanup;
     }
 
     // Load the server's CA certificate.
     const char *ca_file = "server-sub-ca.pem";
-    if (!SSL_CTX_load_verify_locations(ctx, ca_file, NULL)) {
+    if (!SSL_CTX_load_verify_locations(ctx, CLIENT_CA_FILE, NULL)) {
         PERROR("SSL_CTX_load_verify_locations failed to load %s", ca_file);
         goto cleanup;
     }
@@ -159,14 +167,29 @@ void run_client() {
 
     INFO("Connecting to %s:%d", SERVER_ADDR, SERVER_PORT);
 
-    struct sockaddr_in addr;
-    sock = create_socket(SERVER_ADDR, SERVER_PORT, &addr);
-
     // Retry connection until success.
-    while (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        usleep(100000);
-        DEBUG("Resuming after connect failed: %s", strerror(errno));
-    }
+    do {
+        struct sockaddr_in addr;
+        sock = create_socket(SERVER_ADDR, SERVER_PORT, &addr);
+
+        int res = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+        if (res == 0) {
+            // Connection succeeded.
+            break;
+        }
+
+        PERROR("connect failed");
+        close(sock);
+        sock = -1;
+
+        // Retry only on connection refused.
+        if (errno != ECONNREFUSED) {
+            goto cleanup;
+        }
+
+        DEBUG("Retrying in 2 second");
+        sleep(2);
+    } while (true);
 
     ssl = SSL_new(ctx);
     if (!ssl) {
@@ -291,13 +314,13 @@ void run_server() {
         goto cleanup;
     }
 
-    if (load_credentials(ctx, "server.pem", "server-key.pem") != 0) {
+    if (load_credentials(ctx, SERVER_CERT_FILE, SERVER_KEY_FILE) != 0) {
         goto cleanup;
     }
 
     // Load the client's CA certificate.
     const char *ca_file = "client-ca.pem";
-    if (!SSL_CTX_load_verify_locations(ctx, ca_file, NULL)) {
+    if (!SSL_CTX_load_verify_locations(ctx, SERVER_CA_FILE, NULL)) {
         PERROR("SSL_CTX_load_verify_locations failed to load %s", ca_file);
         goto cleanup;
     }
@@ -344,7 +367,7 @@ cleanup:
 }
 
 int main(int argc, char *argv[]) {
-    const char *usage = "Usage: %s client|server [-v]\n";
+    const char *usage = "Usage: %s [-v] client|server\n";
 
     int opt;
     while ((opt = getopt(argc, argv, "v")) != -1) {

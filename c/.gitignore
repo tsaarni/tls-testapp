@@ -2,4 +2,4 @@
 *.o
 testapp
 compile_commands.json
-wireshark-keylog.txt
+wireshark-keys.log
