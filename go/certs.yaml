@@ -10,3 +10,8 @@ subject: cn=client-ca
 ---
 subject: cn=client
 issuer: cn=client-ca
+---
+subject: cn=untrusted-ca
+---
+subject: cn=untrusted-client
+issuer: cn=untrusted-ca

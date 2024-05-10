@@ -1,9 +1,12 @@
 
 # TLS client server example in Go
 
-This is a simple TLS client server example in Go, using HTTP as the application protocol.
-The example uses mutual TLS authentication, i.e. both the client and the server authenticate each other using X509 certificates.
-The client and server are implemented in the same file, see [`main.go`](main.go) for the code.
+This is a simple client server example in Go:
+
+* A TLS server that listens on port 8443 for TLS client connections and echoes back the received message. This is implemented in [`tls.go`](tls.go)
+* A HTTPS server that listens on port 8443 for HTTP client connections and echoes back the received message. This is implemented in [`https.go`](https.go)
+
+The examples use mutual TLS authentication, i.e. both the client and the server authenticate each other using X509 certificates.
 
 
 ## Pre-requisites
@@ -19,14 +22,21 @@ $ certyaml --destination certs certs.yaml  # generate certs
 ## Running the test application locally
 
 ```console
-$ go run main.go server  # run in one terminal
-$ go run main.go client  # run in another terminal
+$ go build
+
+$ ./testapp tls-server  # run TLS server in one terminal
+$ ./testapp tls-client  # run TLS client in another terminal
+
+# or
+
+$ ./testapp https-server  # run HTTPS server in one terminal
+$ ./testapp https-client  # run HTTPS client in another terminal
 ```
 
 Capture traffic with Wireshark and observe the TLS handshake.
 
 ```console
-$ wireshark -k -i lo -f 'port 8443'
+$ wireshark -i lo -f 'port 8443' -k -o tls.keylog_file:/tmp/wireshark-keys.log
 ```
 
 
