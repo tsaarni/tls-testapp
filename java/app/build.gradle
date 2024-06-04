@@ -16,6 +16,7 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
+        //languageVersion = JavaLanguageVersion.of(11)
     }
 }
 
@@ -40,6 +41,8 @@ task server(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'testapp.App'
     args 'server'
+    // enable TLS debug logging
+    //jvmArgs '-Djavax.net.debug=all'
     systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
     systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
     systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
