@@ -76,3 +76,8 @@ task client(type: JavaExec) {
     systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
     systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
 }
+
+task ciphers(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'testapp.Ciphers'
+}
