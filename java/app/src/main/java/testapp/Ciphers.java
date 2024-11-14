@@ -15,24 +15,41 @@ import java.util.List;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocketFactory;
 
 public class Ciphers {
 
     public static void main(String[] args) throws NoSuchAlgorithmException, KeyManagementException {
+
+            // SSLServerSocketFactory ciphers suites.
         SSLServerSocketFactory ssf = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
 
-        // Ciphers enabled by default.
-        List<String> defaultCiphers = Arrays.asList(ssf.getDefaultCipherSuites());
+        List<String> selectedCiphers = Arrays.asList(ssf.getDefaultCipherSuites());
 
-        System.out.println("Ciphers enabled by default:\n");
-        System.out.print(String.join(",\n", defaultCiphers));
+        System.out.println("Ciphers enabled by default for SSLServerSocketFactory.getDefault():\n");
+        System.out.print(String.join(",\n", selectedCiphers));
 
         // Ciphers that could be enabled.
         List<String> availableCiphers = new ArrayList<>();
         Collections.addAll(availableCiphers, ssf.getSupportedCipherSuites());
-        availableCiphers.removeAll(defaultCiphers);
+        availableCiphers.removeAll(selectedCiphers);
 
-        System.out.println("\n\nCiphers available but not enabled:\n");
+        System.out.println("\n\nCiphers available but not enabled for SSLServerSocketFactory.getDefault():\n");
+        System.out.print(String.join(",\n", availableCiphers));
+
+        // SSLSocketFactory cipher suites.
+        SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+
+        selectedCiphers = Arrays.asList(sf.getDefaultCipherSuites());
+
+        System.out.println("\n\nCiphers enabled by default for SSLSocketFactory.getDefault():\n");
+        System.out.print(String.join(",\n", selectedCiphers));
+
+        // Ciphers that could be enabled.
+        System.out.println("\n\nCiphers available but not enabled for SSLSocketFactory.getDefault():\n");
+        availableCiphers = new ArrayList<>();
+        Collections.addAll(availableCiphers, sf.getSupportedCipherSuites());
+        availableCiphers.removeAll(selectedCiphers);
         System.out.print(String.join(",\n", availableCiphers));
 
         // TLS versions

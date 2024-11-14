@@ -20,10 +20,15 @@ public class App {
     private static int port = 9090;
 
 
-    public void client() throws IOException {
+    public static void client() throws IOException {
+        log.info("Starting in client mode");
+
         SSLSocket sock = (SSLSocket) SSLSocketFactory.getDefault().createSocket(address, port);
         log.info("Connected to server local={} remote={}", sock.getLocalSocketAddress(),
                 sock.getRemoteSocketAddress());
+
+        log.debug("Negotiated protocol: {} cipher: {}",
+                sock.getSession().getProtocol(), sock.getSession().getCipherSuite());
 
         while (true) {
             try {
@@ -48,7 +53,9 @@ public class App {
     }
 
 
-    private void server() throws IOException {
+    private static void server() throws IOException {
+        log.info("Starting in server mode");
+
         SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
         try (SSLServerSocket sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port)) {
 
@@ -61,6 +68,9 @@ public class App {
                 try {
                     SSLSocket sock = (SSLSocket) sslServerSocket.accept();
                     log.info("Client connected local={} remote={}", sock.getLocalSocketAddress(), sock.getRemoteSocketAddress());
+
+                    log.debug("Negotiated protocol: {} cipher: {}",
+                            sock.getSession().getProtocol(), sock.getSession().getCipherSuite());
 
                     InputStream inputStream = sock.getInputStream();
                     OutputStream outputStream = sock.getOutputStream();
@@ -85,11 +95,9 @@ public class App {
         }
 
         if (args[0].equals("client")) {
-            log.info("Starting in {} mode", args[0]);
-            new App().client();
+            client();
         } else if (args[0].equals("server")) {
-            log.info("Starting in {} mode", args[0]);
-            new App().server();
+            server();
         } else {
             log.error("Usage: java -jar testapp.jar <client|server>");
             System.exit(1);
