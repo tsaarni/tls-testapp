@@ -65,3 +65,18 @@ java -jar app/build/extract-tls-secrets-4.0.0.jar <PID> /tmp/wireshark-keys.log
 ```
 
 Note that Wireshark must capture the traffic beginning from the handshake, otherwise, it cannot decrypt the traffic.
+
+
+## List protocols and ciphers
+
+To check what JDK lists as available protocols and ciphers, run
+
+```console
+$ gradle ciphers
+```
+
+To see what is impact when disabling specific protocols for the default `SSLContext`:
+
+```console
+$ java -Djdk.tls.server.protocols=TLSv1.3 -Djdk.tls.client.protocols=TLSv1.3 app/src/main/java/testapp/Ciphers.java
+```

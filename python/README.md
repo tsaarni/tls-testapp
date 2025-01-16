@@ -38,11 +38,10 @@ The TLS master secrets can be intercepted from OpenSSL using a wrapper library a
 This file can then be used by Wireshark to decrypt the TLS traffic.
 The wrapper can be loaded by using `LD_PRELOAD`, without modifying the application itself.
 
-In this example, we use the library https://git.lekensteyn.nl/peter/wireshark-notes/tree/src, courtesy of Peter Wu.
-First download `sslkeylog.c` and compile it:
+In this example, we use the library https://github.com/Lekensteyn/wireshark-notes/tree/master/src, courtesy of Peter Wu.
+You can download `sslkeylog.c` or compile the included copy:
 
 ```console
-$ curl -O https://git.lekensteyn.nl/peter/wireshark-notes/plain/src/sslkeylog.c
 $ gcc sslkeylog.c -shared -o libsslkeylog.so -fPIC -ldl -lssl
 ```
 

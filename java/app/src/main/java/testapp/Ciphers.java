@@ -6,6 +6,8 @@
 
 package testapp;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -13,15 +15,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 
 public class Ciphers {
 
-    public static void main(String[] args) throws NoSuchAlgorithmException, KeyManagementException {
+    public static void main(String[] args) throws NoSuchAlgorithmException, KeyManagementException, IOException {
 
-            // SSLServerSocketFactory ciphers suites.
+        // SSLServerSocketFactory ciphers suites.
         SSLServerSocketFactory ssf = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
 
         List<String> selectedCiphers = Arrays.asList(ssf.getDefaultCipherSuites());
@@ -36,6 +40,14 @@ public class Ciphers {
 
         System.out.println("\n\nCiphers available but not enabled for SSLServerSocketFactory.getDefault():\n");
         System.out.print(String.join(",\n", availableCiphers));
+
+
+        SSLServerSocket serverSocket = (SSLServerSocket) ssf.createServerSocket();
+        System.out.println("\n\nCiphers enabled by default for SSLServerSocketFactory.createServerSocket():\n");
+        System.out.print(String.join(",\n", serverSocket.getEnabledCipherSuites()));
+
+
+
 
         // SSLSocketFactory cipher suites.
         SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
