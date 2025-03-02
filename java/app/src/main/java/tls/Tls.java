@@ -1,29 +1,51 @@
-package testapp;
+package tls;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Path;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class App {
+import utils.PemManagerFactory;
 
-    private static final Logger log = LoggerFactory.getLogger(App.class);
+public class Tls {
+
+    private static final Logger log = LoggerFactory.getLogger(Tls.class);
 
     private static String address = "server.127-0-0-1.nip.io";
-    private static int port = 9090;
+    private static int port = 14443;
 
+    private static final String CLIENT_CA_FILE = "../certs/server-ca.pem";
+    private static final String CLIENT_CERT_FILE = "../certs/client.pem";
+    private static final String CLIENT_KEY_FILE = "../certs/client-key.pem";
 
-    public static void client() throws IOException {
+    private static final String SERVER_CA_FILE = "../certs/client-ca.pem";
+    private static final String SERVER_CERT_FILE = "../certs/server.pem";
+    private static final String SERVER_KEY_FILE = "../certs/server-key.pem";
+
+    public static void client()
+            throws NoSuchAlgorithmException, KeyManagementException, IOException {
         log.info("Starting in client mode");
 
-        SSLSocket sock = (SSLSocket) SSLSocketFactory.getDefault().createSocket(address, port);
+        KeyManagerFactory keyManagerFactory = PemManagerFactory.createKeyManagerFactory(Path.of(CLIENT_KEY_FILE),
+                Path.of(CLIENT_CERT_FILE));
+        TrustManagerFactory trustManagerFactory = PemManagerFactory.createTrustManagerFactory(Path.of(CLIENT_CA_FILE));
+
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+        SSLSocket sock = (SSLSocket) context.getSocketFactory().createSocket(address, port);
         log.info("Connected to server local={} remote={}", sock.getLocalSocketAddress(),
                 sock.getRemoteSocketAddress());
 
@@ -52,11 +74,17 @@ public class App {
 
     }
 
-
-    private static void server() throws IOException {
+    private static void server() throws IOException, NoSuchAlgorithmException, KeyManagementException {
         log.info("Starting in server mode");
 
-        SSLServerSocketFactory sslServerSocketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+        KeyManagerFactory keyManagerFactory = PemManagerFactory.createKeyManagerFactory(Path.of(SERVER_KEY_FILE),
+                Path.of(SERVER_CERT_FILE));
+        TrustManagerFactory trustManagerFactory = PemManagerFactory.createTrustManagerFactory(Path.of(SERVER_CA_FILE));
+
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+        SSLServerSocketFactory sslServerSocketFactory = context.getServerSocketFactory();
         try (SSLServerSocket sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port)) {
 
             // Force TLSv1.2 for better visibility of the TLS handshake.
@@ -67,7 +95,8 @@ public class App {
             while (true) {
                 try {
                     SSLSocket sock = (SSLSocket) sslServerSocket.accept();
-                    log.info("Client connected local={} remote={}", sock.getLocalSocketAddress(), sock.getRemoteSocketAddress());
+                    log.info("Client connected local={} remote={}", sock.getLocalSocketAddress(),
+                            sock.getRemoteSocketAddress());
 
                     log.debug("Negotiated protocol: {} cipher: {}",
                             sock.getSession().getProtocol(), sock.getSession().getCipherSuite());
@@ -84,24 +113,25 @@ public class App {
                 }
             }
         }
+
     }
 
     public static void main(String[] args) {
 
         try {
-        if (args.length != 1) {
-            log.error("Usage: java -jar testapp.jar <client|server>");
-            System.exit(1);
-        }
+            if (args.length != 1) {
+                log.error("Usage: java -jar testapp.jar <client|server>");
+                System.exit(1);
+            }
 
-        if (args[0].equals("client")) {
-            client();
-        } else if (args[0].equals("server")) {
-            server();
-        } else {
-            log.error("Usage: java -jar testapp.jar <client|server>");
-            System.exit(1);
-        }
+            if (args[0].equals("client")) {
+                client();
+            } else if (args[0].equals("server")) {
+                server();
+            } else {
+                log.error("Usage: java -jar testapp.jar <client|server>");
+                System.exit(1);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(1);

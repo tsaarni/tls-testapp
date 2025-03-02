@@ -26,21 +26,26 @@ Run the testapp in two separate terminals.
 In one terminal, run the server:
 
 ```console
-$ ./testapp -v server
+$ ./tls -v server
 ```
 
 In another terminal, run the client:
 
 ```console
-$ ./testapp -v client
+$ ./tls -v client
 ```
 
 The verbose flag `-v` enables debug level logs.
 
 ## TLS decryption
 
-The example writes the TLS master secrets to a file, which can be used to decrypt the TLS traffic in Wireshark.
-Run the following command:
+Set the `SSLKEYLOGFILE` environment variable to write the TLS master secrets to a file.
+
+```console
+$ SSLKEYLOGFILE=wireshark-keys.log ./tls server
+```
+
+Then run Wireshark with the `-o tls.keylog_file:wireshark-keys.log` option to decrypt the TLS traffic.
 
 ```console
 $ wireshark -i lo -k -f "port 9876" -o tls.keylog_file:wireshark-keys.log

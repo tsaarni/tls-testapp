@@ -16,7 +16,7 @@ spec:
         image: localhost/testapp:latest
         imagePullPolicy: Never
         command:
-        - "/app/testapp"
+        - "/app/tls"
         args:
         - "server"
         ports:
@@ -40,7 +40,7 @@ spec:
         image: localhost/testapp:latest
         imagePullPolicy: Never
         command:
-        - "/app/testapp"
+        - "/app/tls"
         args:
         - "client"
         env:

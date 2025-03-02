@@ -3,8 +3,8 @@
 
 This is a simple client server example in Go:
 
-* A TLS server that listens on port 8443 for TLS client connections and echoes back the received message. This is implemented in [`tls.go`](tls.go)
-* A HTTPS server that listens on port 8443 for HTTP client connections and echoes back the received message. This is implemented in [`https.go`](https.go)
+* A TLS server that listens on port 14443 for TLS client connections and echoes back the received message. This is implemented in [`cmd/tls/tls.go`](cmd/tls/tls.go)
+* A HTTPS server that listens on port 14443 for HTTP client connections and echoes back the received message. This is implemented in [`cmd/http/http.go`](cmd/http/http.go)
 
 The examples use mutual TLS authentication, i.e. both the client and the server authenticate each other using X509 certificates.
 
@@ -19,18 +19,19 @@ $ mkdir certs
 $ certyaml --destination certs certs.yaml  # generate certs
 ```
 
-## Running the test application locally
+## Running the TLS test application locally
 
 ```console
-$ go build
+$ go build ./cmd/tls
+$ ./tls server  # run TLS server in one terminal
+$ ./tls client  # run TLS client in another terminal
 
-$ ./testapp tls-server  # run TLS server in one terminal
-$ ./testapp tls-client  # run TLS client in another terminal
+or
 
-# or
-
-$ ./testapp https-server  # run HTTPS server in one terminal
-$ ./testapp https-client  # run HTTPS client in another terminal
+```console
+$ go build ./cmd/http
+$ ./http server  # run HTTPS server in one terminal
+$ ./http client  # run HTTPS client in another terminal
 ```
 
 Capture traffic with Wireshark and observe the TLS handshake.
@@ -41,6 +42,8 @@ $ wireshark -i lo -f 'port 8443' -k -o tls.keylog_file:/tmp/wireshark-keys.log
 
 
 ## Build testapp container and run it on Kind cluster
+
+> ⚠️ TODO: Unfinished, does not work currently.
 
 Build the testapp container.
 
@@ -72,11 +75,18 @@ $ kubectl logs deployment/client -f
 ## TLS decryption
 
 Go [`TLSConfig`](https://pkg.go.dev/crypto/tls#Config) has support for writing TLS master secrets to a file by setting [`KeyLogWriter`](https://pkg.go.dev/crypto/tls#example-Config-KeyLogWriter) field.
-See [`main.go`](main.go) how this is used to write the secrets to `/tmp/wireshark-keys.log`.
 This file can then be used by Wireshark to decrypt the TLS traffic.
 
+To enable writing the keylog file set `SSLKEYLOGFILE` environment variable to the path of the keylog file.
+
 ```console
-$ wireshark -i lo -k -f "port 8443" -o tls.keylog_file:/tmp/wireshark-keys.log
+$ SSLKEYLOGFILE=wireshark-keys.log ./tls server
+```
+
+Then run Wireshark with the keylog file.
+
+```console
+$ wireshark -i lo -k -f "port 8443" -o tls.keylog_file:wireshark-keys.log
 ```
 
 The example intercepts the TLS master secrets from the server, but the same can be done for the client.
@@ -85,7 +95,7 @@ If running the testapp in Kind, use `nsenter` to enter the network namespace of 
 First, find the PID of the testapp server process and then run `nsenter` with the PID.
 
 ```console
-$ server_pid=$(pgrep -f "testapp server")
+$ server_pid=$(pgrep -f "tls server")
 $ sudo nsenter -t $server_pid --net wireshark -f "port 8443" -k -o tls.keylog_file:/proc/$server_pid/root/tmp/wireshark-keys.log
 ```
 

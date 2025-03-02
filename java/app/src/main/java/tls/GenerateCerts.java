@@ -1,4 +1,4 @@
-package testapp;
+package tls;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,9 +30,9 @@ public class GenerateCerts {
 
             KeyStore serverKeystore = KeyStore.getInstance("PKCS12");
             serverKeystore.load(null, null);
-            serverKeystore.setKeyEntry("server", server.getPrivateKey(), "secret".toCharArray(), server.getCertificates());
+            serverKeystore.setKeyEntry("server", server.getPrivateKey(), "secret".toCharArray(),
+                    server.getCertificates());
             serverKeystore.store(Files.newOutputStream(Paths.get("server-keystore.p12")), "secret".toCharArray());
-
 
             // Generate trust and keystore files for the client
             KeyStore clientTruststore = KeyStore.getInstance("PKCS12");
@@ -42,7 +42,8 @@ public class GenerateCerts {
 
             KeyStore clientKeystore = KeyStore.getInstance("PKCS12");
             clientKeystore.load(null, null);
-            clientKeystore.setKeyEntry("client", client.getPrivateKey(), "secret".toCharArray(), client.getCertificates());
+            clientKeystore.setKeyEntry("client", client.getPrivateKey(), "secret".toCharArray(),
+                    client.getCertificates());
             clientKeystore.store(Files.newOutputStream(Paths.get("client-keystore.p12")), "secret".toCharArray());
 
         } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {

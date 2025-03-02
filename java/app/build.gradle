@@ -21,7 +21,7 @@ java {
 }
 
 application {
-    mainClass = 'testapp.App'
+    mainClass = 'tls.Tls'
 }
 
 task generateCerts(type: JavaExec) {
@@ -39,45 +39,27 @@ task downloadAgent(type: Download) {
 
 task server(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'testapp.App'
+    mainClass = 'tls.Tls'
     args 'server'
     // enable TLS debug logging
     //jvmArgs '-Djavax.net.debug=all'
-    systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
-    systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
-    systemProperties['javax.net.ssl.trustStore'] = 'server-truststore.p12'
-    systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
 }
 
 task serverWithAgent(type: JavaExec) {
     dependsOn downloadAgent
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'testapp.App'
+    mainClass = 'tls.Tls'
     args 'server'
     jvmArgs "-javaagent:build/extract-tls-secrets-4.0.0.jar=/tmp/wireshark-keys.log"
-    systemProperties['javax.net.ssl.keyStore'] = 'server-keystore.p12'
-    systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
-    systemProperties['javax.net.ssl.trustStore'] = 'server-truststore.p12'
-    systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
 }
 
 task client(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'testapp.App'
+    mainClass = 'tls.Tls'
     args 'client'
-    systemProperties['javax.net.ssl.keyStore'] = 'client-keystore.p12'
-    systemProperties['javax.net.ssl.keyStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.keyStoreType'] = 'PKCS12'
-    systemProperties['javax.net.ssl.trustStore'] = 'client-truststore.p12'
-    systemProperties['javax.net.ssl.trustStorePassword'] = 'secret'
-    systemProperties['javax.net.ssl.trustStoreType'] = 'PKCS12'
 }
 
 task ciphers(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'testapp.Ciphers'
+    mainClass = 'ciphers.Ciphers'
 }

@@ -1,0 +1,19 @@
+{
+  "name": "tls-testapp",
+  "version": "1.0.0",
+  "description": "TLS test application",
+  "main": "tls.js",
+  "scripts": {
+    "start:server": "ts-node src/tls.ts server",
+    "start:client": "ts-node src/tls.ts client"
+  },
+  "author": "Tero Saarni",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^22.13.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "ts-node": "^10.9.2"
+  }
+}

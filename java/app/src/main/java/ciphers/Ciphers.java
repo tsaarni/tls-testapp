@@ -4,10 +4,9 @@
 // https://docs.oracle.com/en/java/javase/17/docs/specs/security/standard-names.html
 // https://docs.oracle.com/en/java/javase/21/docs/specs/security/standard-names.html
 
-package testapp;
+package ciphers;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -15,7 +14,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
@@ -41,13 +39,9 @@ public class Ciphers {
         System.out.println("\n\nCiphers available but not enabled for SSLServerSocketFactory.getDefault():\n");
         System.out.print(String.join(",\n", availableCiphers));
 
-
         SSLServerSocket serverSocket = (SSLServerSocket) ssf.createServerSocket();
         System.out.println("\n\nCiphers enabled by default for SSLServerSocketFactory.createServerSocket():\n");
         System.out.print(String.join(",\n", serverSocket.getEnabledCipherSuites()));
-
-
-
 
         // SSLSocketFactory cipher suites.
         SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();

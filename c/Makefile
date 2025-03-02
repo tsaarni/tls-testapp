@@ -1,23 +1,28 @@
+OPENSSL_CFLAGS := $(shell pkg-config --cflags openssl)
+OPENSSL_LIBS := $(shell pkg-config --libs openssl)
 
-CFLAGS ?= -Wall -Wextra -Werror -g -O0
+CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c2x $(OPENSSL_CFLAGS)
+LDFLAGS := $(OPENSSL_LIBS)
 
-all: testapp
+TARGET := tls
+SRCS := tls.c
+OBJS := $(SRCS:.c=.o)
 
-testapp: testapp.o
-	$(CC) $(LDFLAGS) -o testapp testapp.o -lssl -lcrypto
+all: $(TARGET)
 
-testapp.o: logger.h
+$(TARGET): $(OBJS)
+	$(CC) $(LDFLAGS) $(CPPFLAGS) -o $(TARGET) $(OBJS)
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $<
+tls.o: logger.h
 
 # https://github.com/tsaarni/certyaml
 certs:
 	certyaml
 
 clean:
-	rm -f testapp *.o
-
+	rm -f $(TARGET) $(OBJS)
 
 vscode_compile_commands: clean
-	bear -- make testapp
+	bear -- make tls
+
+.PHONY: all certs clean vscode_compile_commands

@@ -12,18 +12,16 @@
 
 #include "logger.h"
 
-#define SERVER_ADDR "localhost"
-#define SERVER_PORT 9876
+#define SERVER_ADDR "server.127-0-0-1.nip.io"
+#define SERVER_PORT 14443
 
-#define CLIENT_CA_FILE "server-sub-ca.pem"
-#define CLIENT_CERT_FILE "client.pem"
-#define CLIENT_KEY_FILE "client-key.pem"
+#define CLIENT_CA_FILE "../certs/server-sub-ca.pem"
+#define CLIENT_CERT_FILE "../certs/client.pem"
+#define CLIENT_KEY_FILE "../certs/client-key.pem"
 
-#define SERVER_CA_FILE "client-ca.pem"
-#define SERVER_CERT_FILE "server.pem"
-#define SERVER_KEY_FILE "server-key.pem"
-
-#define KEYLOG_FILE "wireshark-keys.log"
+#define SERVER_CA_FILE "../certs/client-ca.pem"
+#define SERVER_CERT_FILE "../certs/server.pem"
+#define SERVER_KEY_FILE "../certs/server-key.pem"
 
 // Debug level logs are disabled by default.
 static bool log_level_verbose = false;
@@ -52,7 +50,7 @@ int create_socket(char *hostname, int port, struct sockaddr_in *addr) {
 }
 
 int load_credentials(SSL_CTX *ctx, const char *cert_file, const char *key_file) {
-    if (SSL_CTX_use_certificate_file(ctx, cert_file, SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
         PERROR("SSL_CTX_use_certificate_file failed to load %s", cert_file);
         return -1;
     }
@@ -79,12 +77,15 @@ int set_min_max_proto_versions(SSL_CTX *ctx, int min_version, int max_version) {
     return 0;
 }
 
-void keylog_callback(const SSL *ssl, const char *line) {
-    (void)ssl;
+void keylog_callback(const SSL * /*ssl*/, const char *line) {
+    const char *keylog_file = getenv("SSLKEYLOGFILE");
+    if (!keylog_file) {
+        return;
+    }
 
-    FILE *file = fopen(KEYLOG_FILE, "a");
+    FILE *file = fopen(keylog_file, "a");
     if (!file) {
-        PERROR("fopen failed to open %s", KEYLOG_FILE);
+        PERROR("fopen failed to open %s", keylog_file);
         return;
     }
 
@@ -223,23 +224,34 @@ void run_client() {
 
     print_peer_cert_info(ssl);
 
-    char *msg = "Hello, world!";
-    INFO("Sending: %s", msg);
-    size_t written;
-    if (SSL_write_ex(ssl, msg, strlen(msg), &written) != 1) {
-        PERROR("SSL_write_ex failed");
-        goto cleanup;
+    int i = 1;
+    while (true) {
+        char msg[1024];
+        sprintf(msg, "Hello world %d", i++);
+
+        INFO("Sending: %s", msg);
+
+        size_t written;
+        if (SSL_write_ex(ssl, msg, strlen(msg), &written) != 1) {
+            PERROR("SSL_write_ex failed");
+            goto cleanup;
+        }
+
+        size_t len;
+        int read_result = SSL_read_ex(ssl, msg, sizeof(msg), &len);
+        if (read_result == 0) {
+            INFO("Connection closed by the server");
+            break;
+        } else if (read_result < 0) {
+            PERROR("SSL_read_ex failed");
+            goto cleanup;
+        }
+
+        msg[len] = '\0';
+        INFO("Received: %s", msg);
+        sleep(1);
     }
-
-    // TLSv1.3: we need to read (at least) 0 bytes to complete the handshake.
-    SSL_read_ex(ssl, NULL, 0, NULL);
-
     INFO("Closing connection");
-
-    if (SSL_shutdown(ssl) < 0) {
-        PERROR("SSL_shutdown failed");
-        goto cleanup;
-    }
 
 cleanup:
     if (ssl)
@@ -273,21 +285,28 @@ void handle_client_connection(SSL_CTX *ctx, int client_sock) {
 
     DEBUG("Connected with TLS version %s, cipher %s", SSL_get_version(ssl), SSL_get_cipher(ssl));
 
-    char buf[1024];
-    size_t len;
-    if (SSL_read_ex(ssl, buf, sizeof(buf), &len) != 1) {
-        PERROR("SSL_read_ex failed");
-        goto cleanup;
-    }
+    while (true) {
+        char buf[1024];
+        size_t len;
+        int read_result = SSL_read_ex(ssl, buf, sizeof(buf), &len);
+        if (read_result == 0) {
+            INFO("Connection closed by the client");
+            break;
+        } else if (read_result < 0) {
+            PERROR("SSL_read_ex failed");
+            goto cleanup;
+        }
 
-    buf[len] = '\0';
-    INFO("Received: %s", buf);
+        buf[len] = '\0';
+        INFO("Received: %s", buf);
 
-    INFO("Closing client connection");
+        INFO("Sending: %s", buf);
 
-    if (SSL_shutdown(ssl) < 0) {
-        PERROR("SSL_shutdown failed");
-        goto cleanup;
+        size_t written;
+        if (SSL_write_ex(ssl, buf, len, &written) != 1) {
+            PERROR("SSL_write_ex failed");
+            goto cleanup;
+        }
     }
 
 cleanup:
