@@ -16,7 +16,7 @@
 
 /* Originally from https://github.com/tsaarni/reloading-keystore */
 
-package utils;
+package io.github.tsaarni.tlstestapp.tls;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;

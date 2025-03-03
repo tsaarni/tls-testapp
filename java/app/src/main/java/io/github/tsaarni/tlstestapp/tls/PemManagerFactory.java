@@ -1,4 +1,4 @@
-package utils;
+package io.github.tsaarni.tlstestapp.tls;
 
 import java.io.IOException;
 import java.nio.file.Path;

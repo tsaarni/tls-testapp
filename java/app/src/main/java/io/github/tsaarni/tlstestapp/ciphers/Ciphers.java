@@ -4,7 +4,7 @@
 // https://docs.oracle.com/en/java/javase/17/docs/specs/security/standard-names.html
 // https://docs.oracle.com/en/java/javase/21/docs/specs/security/standard-names.html
 
-package ciphers;
+package io.github.tsaarni.tlstestapp.ciphers;
 
 import java.io.IOException;
 import java.security.KeyManagementException;

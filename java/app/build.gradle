@@ -8,9 +8,8 @@ repositories {
 }
 
 dependencies {
-    runtimeOnly 'org.logevents:logevents:0.5.2'
-    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
-    implementation 'fi.protonode:certy:0.3.1'
+    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
 }
 
 java {
@@ -24,11 +23,6 @@ application {
     mainClass = 'tls.Tls'
 }
 
-task generateCerts(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'testapp.GenerateCerts'
-    args 'testapp'
-}
 
 // Uses https://github.com/michel-kraemer/gradle-download-task
 task downloadAgent(type: Download) {
@@ -39,7 +33,7 @@ task downloadAgent(type: Download) {
 
 task server(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'tls.Tls'
+    mainClass = 'io.github.tsaarni.tlstestapp.tls.Tls'
     args 'server'
     // enable TLS debug logging
     //jvmArgs '-Djavax.net.debug=all'
@@ -48,18 +42,18 @@ task server(type: JavaExec) {
 task serverWithAgent(type: JavaExec) {
     dependsOn downloadAgent
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'tls.Tls'
+    mainClass = 'io.github.tsaarni.tlstestapp.tls.Tls'
     args 'server'
     jvmArgs "-javaagent:build/extract-tls-secrets-4.0.0.jar=/tmp/wireshark-keys.log"
 }
 
 task client(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'tls.Tls'
+    mainClass = 'io.github.tsaarni.tlstestapp.tls.Tls'
     args 'client'
 }
 
 task ciphers(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'ciphers.Ciphers'
+    mainClass = 'io.github.tsaarni.tlstestapp.ciphers.Ciphers'
 }

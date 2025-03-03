@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout>
+                <Pattern>%style{%d{HH:mm:ss}}{bright,blue} %highlight{%-5p}{FATAL=bright,red, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=bright,magenta} %style{[%c{2}]}{cyan} %style{(%t)}{magenta} %m%n</Pattern>
+            </PatternLayout>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="io.github.tsaarni.tlstestapp" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

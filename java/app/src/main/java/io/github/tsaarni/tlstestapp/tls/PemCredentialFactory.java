@@ -16,7 +16,7 @@
 
 /* Originally from https://github.com/tsaarni/reloading-keystore */
 
-package utils;
+package io.github.tsaarni.tlstestapp.tls;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,8 +33,8 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Reads PEM files and constructs {@code Certificates} and {@code PrivateKeys}
@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PemCredentialFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(PemCredentialFactory.class);
+    private static final Logger log = LogManager.getLogger(PemCredentialFactory.class);
 
     private PemCredentialFactory() {
         // Empty.

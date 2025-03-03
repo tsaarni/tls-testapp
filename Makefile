@@ -9,7 +9,7 @@
 #
 # The generated certificates are stored in the `certs` directory.
 
-certs: certyaml
+certs:
 	mkdir -p certs
 	certyaml -d certs configs/certs.yaml
 
