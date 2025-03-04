@@ -16,8 +16,6 @@ import javax.net.ssl.TrustManagerFactory;
 
 public class PemManagerFactory {
 
-    private static final char[] KEYSTORE_PASSWORD = "not-secret".toCharArray();
-
     private PemManagerFactory() {
         // Empty.
     }
@@ -27,7 +25,7 @@ public class PemManagerFactory {
             KeyStore keyStore = createKeyStore(keyPath, certPath);
             KeyManagerFactory keyManagerFactory = KeyManagerFactory
                     .getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
+            keyManagerFactory.init(keyStore, null);
             return keyManagerFactory;
         } catch (NoSuchAlgorithmException | KeyStoreException | IOException
                 | UnrecoverableKeyException | CertificateException | InvalidKeySpecException e) {
@@ -55,7 +53,7 @@ public class PemManagerFactory {
         Certificate[] certificates = PemCredentialFactory.generateCertificates(certPath);
         PrivateKey privateKey = PemCredentialFactory.generatePrivateKey(keyPath);
 
-        keyStore.setKeyEntry("credential", privateKey, KEYSTORE_PASSWORD, certificates);
+        keyStore.setKeyEntry("credential", privateKey, null, certificates);
 
         return keyStore;
     }
