@@ -8,11 +8,7 @@ The client and server are implemented in the same file, see [`App.java`](app/src
 
 ## Pre-requisites
 
-First run [GenerateCerts.java](app/src/main/java/testapp/GenerateCerts.java), which uses [java-certy](https://github.com/tsaarni/java-certy) library for generating certificates.
-
-```console
-$ gradle generateCerts
-```
+First run `make certs` in git repository root to generate the necessary certificates.
 
 
 ## Running the test application
@@ -27,7 +23,7 @@ $ gradle client  # run in another terminal
 Capture traffic with Wireshark and observe the TLS handshake.
 
 ```console
-$ wireshark  -k -i lo -f "port 9090"
+$ wireshark  -k -i lo -f "port 14443"
 ```
 
 
@@ -36,32 +32,26 @@ $ wireshark  -k -i lo -f "port 9090"
 The TLS master secrets can be intercepted by a Java agent and logged into a file.
 This file can then be used by Wireshark to decrypt the TLS traffic.
 
-In this example, we use the agent [extract-tls-secrets](https://github.com/neykov/extract-tls-secrets), courtesy of [@neykov](https://github.com/neykov).
-You can compile the agent from source code or download the pre-compiled JAR by running
+The example uses [extract-tls-secrets](https://github.com/neykov/extract-tls-secrets), courtesy of [@neykov](https://github.com/neykov).
+
+To run the client or server with the agent attached, use the `useAgent` property.
 
 ```console
-$ gradle downloadAgent
+$ gradle <client|server> -PuseAgent
 ```
 
-To run the server with the agent attached, use the following command
+The agent will log the TLS master secrets into a file `wireshark-keys.log` in the project root directory.
+
+To decrypt the TLS traffic in Wireshark, run
 
 ```console
-$ gradle serverWithAgent
-```
-
-See [build.gradle](app/build.gradle) for the details.
-The example intercepts the TLS master secrets from the server, but the same can be done for the client.
-
-Decrypt the TLS traffic in Wireshark by providing the path to the log file
-
-```console
-$ wireshark -i lo -k -f "port 9090" -o tls.keylog_file:/tmp/wireshark-keys.log
+$ wireshark -i lo -k -f "port 14443" -o tls.keylog_file:wireshark-keys.log
 ```
 
 Alternatively, the agent can also be attached to a running JVM process
 
 ```console
-java -jar app/build/extract-tls-secrets-4.0.0.jar <PID> /tmp/wireshark-keys.log
+java -jar app/build/extract-tls-secrets-4.0.0.jar <PID> wireshark-keys.log
 ```
 
 Note that Wireshark must capture the traffic beginning from the handshake, otherwise, it cannot decrypt the traffic.

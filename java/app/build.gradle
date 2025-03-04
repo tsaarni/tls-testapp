@@ -23,7 +23,6 @@ application {
     mainClass = 'tls.Tls'
 }
 
-
 // Uses https://github.com/michel-kraemer/gradle-download-task
 task downloadAgent(type: Download) {
     src 'https://repo1.maven.org/maven2/name/neykov/extract-tls-secrets/4.0.0/extract-tls-secrets-4.0.0.jar'
@@ -31,20 +30,23 @@ task downloadAgent(type: Download) {
     overwrite false
 }
 
+tasks.withType(JavaExec) {
+    // Enable TLS secrets extraction.
+    if (project.hasProperty('useAgent')) {
+        dependsOn downloadAgent
+        jvmArgs "-javaagent:build/extract-tls-secrets-4.0.0.jar=${rootDir}/wireshark-keys.log"
+    }
+
+    // Enable TLS debug logging.
+    if (project.hasProperty('tlsDebug')) {
+        jvmArgs '-Djavax.net.debug=all'
+    }
+}
+
 task server(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'io.github.tsaarni.tlstestapp.tls.Tls'
     args 'server'
-    // enable TLS debug logging
-    //jvmArgs '-Djavax.net.debug=all'
-}
-
-task serverWithAgent(type: JavaExec) {
-    dependsOn downloadAgent
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'io.github.tsaarni.tlstestapp.tls.Tls'
-    args 'server'
-    jvmArgs "-javaagent:build/extract-tls-secrets-4.0.0.jar=/tmp/wireshark-keys.log"
 }
 
 task client(type: JavaExec) {
