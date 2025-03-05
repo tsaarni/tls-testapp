@@ -44,8 +44,10 @@ public class Tls {
         context.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
 
         SSLSocket sock = (SSLSocket) context.getSocketFactory().createSocket(address, port);
+        //sock.setEnabledProtocols(new String[] { "TLSv1.3" });
+        //sock.setEnabledCipherSuites(new String[] { "TLS_AES_128_GCM_SHA256" });
         log.info("Connected to server local={} remote={}", sock.getLocalSocketAddress(),
-                sock.getRemoteSocketAddress());
+            sock.getRemoteSocketAddress());
 
         int counter = 1;
         while (true) {
@@ -92,6 +94,7 @@ public class Tls {
 
             // Force TLSv1.2 for better visibility of the TLS handshake.
             // sslServerSocket.setEnabledProtocols(new String[] { "TLSv1.2" });
+            //sslServerSocket.setEnabledProtocols(new String[] { "TLSv1.3" });
             sslServerSocket.setNeedClientAuth(true);
 
             log.info("Server started on port {}", sslServerSocket.getLocalPort());

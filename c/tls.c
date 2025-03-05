@@ -2,6 +2,7 @@
 // https://www.openssl.org/docs/man3.2/man7/ossl-guide-introduction.html
 
 #include <arpa/inet.h>
+#include <getopt.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <openssl/err.h>
@@ -44,7 +45,7 @@ int create_socket(char *hostname, int port, struct sockaddr_in *addr) {
     memset(addr, 0, sizeof(*addr));
     addr->sin_family = host->h_addrtype;
     addr->sin_port = htons(port);
-    memcpy(&addr->sin_addr.s_addr, host->h_addr, host->h_length);
+    memcpy(&addr->sin_addr.s_addr, host->h_addr_list[0], host->h_length);
 
     return sock;
 }
@@ -165,6 +166,16 @@ void run_client() {
 
     // Require the server to present a certificate.
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
+    // if (SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION) != 1) {
+    //     PERROR("SSL_CTX_set_min_proto_version failed to set TLS1.3");
+    //     goto cleanup;
+    // }
+
+    // if (SSL_CTX_set_ciphersuites(ctx, "TLS_CHACHA20_POLY1305_SHA256") != 1) {
+    //     PERROR("SSL_CTX_set_cipher_list failed to set cipher suite");
+    //     goto cleanup;
+    // }
 
     INFO("Connecting to %s:%d", SERVER_ADDR, SERVER_PORT);
 

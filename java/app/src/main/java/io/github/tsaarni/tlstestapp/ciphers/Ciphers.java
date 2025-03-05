@@ -15,9 +15,8 @@ import java.util.Collections;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSocketFactory;
 
 public class Ciphers {
 
@@ -25,74 +24,71 @@ public class Ciphers {
 
         // SSLServerSocketFactory ciphers suites.
         SSLServerSocketFactory ssf = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+        printCipherSuite("SSLServerSocketFactory.getDefault()", ssf.getDefaultCipherSuites());
 
         List<String> selectedCiphers = Arrays.asList(ssf.getDefaultCipherSuites());
-
-        System.out.println("Ciphers enabled by default for SSLServerSocketFactory.getDefault():\n");
-        System.out.print(String.join(",\n", selectedCiphers));
-
-        // Ciphers that could be enabled.
         List<String> availableCiphers = new ArrayList<>();
         Collections.addAll(availableCiphers, ssf.getSupportedCipherSuites());
         availableCiphers.removeAll(selectedCiphers);
 
-        System.out.println("\n\nCiphers available but not enabled for SSLServerSocketFactory.getDefault():\n");
+        System.out.println("\n\nCiphers available but not enabled for SSLServerSocketFactory.getDefault():");
         System.out.print(String.join(",\n", availableCiphers));
 
-        SSLServerSocket serverSocket = (SSLServerSocket) ssf.createServerSocket();
-        System.out.println("\n\nCiphers enabled by default for SSLServerSocketFactory.createServerSocket():\n");
-        System.out.print(String.join(",\n", serverSocket.getEnabledCipherSuites()));
 
-        // SSLSocketFactory cipher suites.
-        SSLSocketFactory sf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+        SSLContext ctxDefault = SSLContext.getDefault();
+        SSLContext ctxTLS11 = SSLContext.getInstance("TLSv1.1");
+        SSLContext ctxTLS12 = SSLContext.getInstance("TLSv1.2");
+        SSLContext ctxTLS13 = SSLContext.getInstance("TLSv1.3");
+        ctxTLS11.init(null, null, null);
+        ctxTLS12.init(null, null, null);
+        ctxTLS13.init(null, null, null);
 
-        selectedCiphers = Arrays.asList(sf.getDefaultCipherSuites());
-
-        System.out.println("\n\nCiphers enabled by default for SSLSocketFactory.getDefault():\n");
-        System.out.print(String.join(",\n", selectedCiphers));
-
-        // Ciphers that could be enabled.
-        System.out.println("\n\nCiphers available but not enabled for SSLSocketFactory.getDefault():\n");
-        availableCiphers = new ArrayList<>();
-        Collections.addAll(availableCiphers, sf.getSupportedCipherSuites());
-        availableCiphers.removeAll(selectedCiphers);
-        System.out.print(String.join(",\n", availableCiphers));
-
-        // TLS versions
-
-        System.out.println("\n\nDefault protocols SSLContext.getDefault()\n");
-        SSLContext sslContext = SSLContext.getDefault();
-        System.out.println("- SSLContext.getProtocol():\t\t\t\t\t" + sslContext.getProtocol());
-        System.out.println("- SSLContext.getSupportedSSLParameters().getProtocols():\t"
-                + String.join(", ", sslContext.getSupportedSSLParameters().getProtocols()));
-        System.out.println("- SSLContext.getDefaultSSLParameters().getProtocols():\t\t"
-                + String.join(", ", sslContext.getDefaultSSLParameters().getProtocols()));
-
-        System.out.println("\n\nDefault protocols SSLContext.getInstance(\"TLSv1.1\")\n");
-        sslContext = SSLContext.getInstance("TLSv1.1");
-        sslContext.init(null, null, null);
-        System.out.println("- SSLContext.getProtocol():\t\t\t\t\t" + sslContext.getProtocol());
-        System.out.println("- SSLContext.getSupportedSSLParameters().getProtocols():\t"
-                + String.join(", ", sslContext.getSupportedSSLParameters().getProtocols()));
-        System.out.println("- SSLContext.getDefaultSSLParameters().getProtocols():\t\t"
-                + String.join(", ", sslContext.getDefaultSSLParameters().getProtocols()));
-
-        System.out.println("\n\nDefault protocols SSLContext.getInstance(\"TLSv1.2\")\n");
-        sslContext = SSLContext.getInstance("TLSv1.2");
-        sslContext.init(null, null, null);
-        System.out.println("- SSLContext.getProtocol():\t\t\t\t\t" + sslContext.getProtocol());
-        System.out.println("- SSLContext.getSupportedSSLParameters().getProtocols():\t"
-                + String.join(", ", sslContext.getSupportedSSLParameters().getProtocols()));
-        System.out.println("- SSLContext.getDefaultSSLParameters().getProtocols():\t\t"
-                + String.join(", ", sslContext.getDefaultSSLParameters().getProtocols()));
-
-        System.out.println("\n\nDefault protocols SSLContext.getInstance(\"TLSv1.3\")\n");
-        sslContext = SSLContext.getInstance("TLSv1.3");
-        sslContext.init(null, null, null);
-        System.out.println("- SSLContext.getProtocol():\t\t\t\t\t" + sslContext.getProtocol());
-        System.out.println("- SSLContext.getSupportedSSLParameters().getProtocols():\t"
-                + String.join(", ", sslContext.getSupportedSSLParameters().getProtocols()));
-        System.out.println("- SSLContext.getDefaultSSLParameters().getProtocols():\t\t"
-                + String.join(", ", sslContext.getDefaultSSLParameters().getProtocols()));
+        printCipherSuiteDiff("SSLContext.getInstance(\"TLSv1.1\")", ctxTLS11.getDefaultSSLParameters(), ctxDefault.getDefaultSSLParameters());
+        printCipherSuiteDiff("SSLContext.getInstance(\"TLSv1.2\")", ctxTLS12.getDefaultSSLParameters(), ctxDefault.getDefaultSSLParameters());
+        printCipherSuiteDiff("SSLContext.getInstance(\"TLSv1.3\")", ctxTLS13.getDefaultSSLParameters(), ctxDefault.getDefaultSSLParameters());
     }
+
+    static void printCipherSuiteDiff(String context, SSLParameters a, SSLParameters b) {
+        System.out.println("\n" + context + " ciphers missing compared to default:");
+
+        String[] ciphersNotPresent = missing(a.getCipherSuites(), b.getCipherSuites());
+        for (String c : ciphersNotPresent) {
+            System.out.println("\t" + c);
+        }
+
+        String[] ciphersExtra = extra(a.getCipherSuites(), b.getCipherSuites());
+        System.out.println("\n" + context + " ciphers extra compared to default:");
+        for (String c : ciphersExtra) {
+            System.out.println("\t" + c);
+        }
+
+    }
+
+    static void printCipherSuite(String context, String[] ciphers) {
+        System.out.println("\n\n" + context + " ciphers:");
+        for (String c : ciphers) {
+            System.out.println("\t" + c);
+        }
+    }
+
+    static String[] missing(String[] a, String[] b) {
+        List<String> list = new ArrayList<>();
+        for (String s : b) {
+            if (!Arrays.asList(a).contains(s)) {
+                list.add(s);
+            }
+        }
+        return list.toArray(new String[0]);
+    }
+
+    static String[] extra(String[] a, String[] b) {
+        List<String> list = new ArrayList<>();
+        for (String s : a) {
+            if (!Arrays.asList(b).contains(s)) {
+                list.add(s);
+            }
+        }
+        return list.toArray(new String[0]);
+    }
+
 }

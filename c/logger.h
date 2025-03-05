@@ -12,7 +12,7 @@
         unsigned long openssl_err = ERR_get_error();                                                                   \
         if (errno)                                                                                                     \
             LOGGER(fmt ": %s", "ERROR", ##__VA_ARGS__, strerror(errno));                                               \
-        else if (openssl_err) {                                                                                        \
+        if (openssl_err) {                                                                                             \
             char buf[256];                                                                                             \
             ERR_error_string_n(openssl_err, buf, sizeof(buf));                                                         \
             LOGGER(fmt ": %s", "ERROR", ##__VA_ARGS__, buf);                                                           \

@@ -40,13 +40,13 @@ func server() {
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    caCertPool,
 		// Force TLSv1.2 for better visibility of the TLS handshake.
-		//MaxVersion: tls.VersionTLS12,
+		// MaxVersion: tls.VersionTLS12,
 	}
 
 	keyLogFile := os.Getenv("SSLKEYLOGFILE")
 	if keyLogFile != "" {
 		slog.Info("Keylog enabled", "file", keyLogFile)
-		f, _ := os.OpenFile(keyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, _ := os.OpenFile(keyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		config.KeyLogWriter = f
 	}
 
@@ -121,12 +121,16 @@ func client() {
 	config := &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{clientCert},
+		MinVersion:   tls.VersionTLS12,
+		// CipherSuites: []uint16{
+		// 	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		// },
 	}
 
 	keyLogFile := os.Getenv("SSLKEYLOGFILE")
 	if keyLogFile != "" {
 		slog.Info("Keylog enabled", "file", keyLogFile)
-		f, _ := os.OpenFile(keyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, _ := os.OpenFile(keyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		config.KeyLogWriter = f
 	}
 
