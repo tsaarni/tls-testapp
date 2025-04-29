@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,13 +12,16 @@ import (
 )
 
 const (
-	addr           = "server.127-0-0-1.nip.io:14443"
-	serverCaFile   = "../certs/client-ca.pem"
-	serverCertFile = "../certs/server.pem"
-	serverKeyFile  = "../certs/server-key.pem"
-	clientCaFile   = "../certs/server-ca.pem"
-	clientCertFile = "../certs/client.pem"
-	clientKeyFile  = "../certs/client-key.pem"
+	addr            = "server.127-0-0-1.nip.io:14443"
+	serverCaFile    = "../certs/client-ca.pem"
+	serverCertFile  = "../certs/server.pem"
+	serverKeyFile   = "../certs/server-key.pem"
+	serverCaCrlFile = "../certs/client-ca-crl.pem" // CRL file that client CA has issued (contains revoked client cert serials)
+	clientCaFile    = "../certs/server-ca.pem"
+	clientCertFile  = "../certs/client.pem"
+	clientKeyFile   = "../certs/client-key.pem"
+	// clientCertFile = "../certs/revoked-client.pem"
+	// clientKeyFile  = "../certs/revoked-client-key.pem"
 )
 
 func server() {
@@ -41,6 +45,7 @@ func server() {
 		ClientCAs:    caCertPool,
 		// Force TLSv1.2 for better visibility of the TLS handshake.
 		// MaxVersion: tls.VersionTLS12,
+		VerifyPeerCertificate: rejectRevokedCerts,
 	}
 
 	keyLogFile := os.Getenv("SSLKEYLOGFILE")
@@ -169,6 +174,85 @@ func client() {
 		time.Sleep(1 * time.Second)
 		i++
 	}
+}
+
+func rejectRevokedCerts(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	crl, err := loadCRL(serverCaCrlFile, serverCaFile)
+	if err != nil {
+		return fmt.Errorf("failed to verify: failed to load CRL: %w", err)
+	}
+
+	for _, chain := range verifiedChains {
+		for _, cert := range chain {
+			return verifyCert(cert, crl)
+		}
+	}
+	return nil
+}
+
+func verifyCert(cert *x509.Certificate, crl *x509.RevocationList) error {
+	// Check that the certificate is issued by the same issuer as the CRL.
+	if cert.Issuer.String() != crl.Issuer.String() {
+		return fmt.Errorf("certificate issuer %s does not match CRL issuer %s", cert.Issuer, crl.Issuer)
+	}
+
+	for _, revoked := range crl.RevokedCertificateEntries {
+		// Note: this example code ignores the CRL extensions.
+
+		// Check if the certificate serial number is in the CRL.
+		if cert.SerialNumber.Cmp(revoked.SerialNumber) == 0 {
+			return fmt.Errorf("certificate %s is revoked (serial: %s)", cert.Subject, cert.SerialNumber)
+		}
+	}
+	return nil
+}
+
+func loadCRL(crlFile string, issuerCertFile string) (*x509.RevocationList, error) {
+	crlPEM, err := os.ReadFile(crlFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CRL file: %w", err)
+	}
+
+	// Decode the PEM file into DER format.
+	block, _ := pem.Decode(crlPEM)
+	if block.Type != "X509 CRL" {
+		return nil, fmt.Errorf("invalid CRL PEM block type: %s", block.Type)
+	}
+
+	// Parse the CRL.
+	crl, error := x509.ParseRevocationList(block.Bytes)
+	if error != nil {
+		return nil, fmt.Errorf("failed to parse CRL: %w", error)
+	}
+
+	// Optional 1: Check if the CRL is expired.
+	//
+	//expired := !time.Now().Before(crl.NextUpdate)
+	//if expired {
+	//	return nil, fmt.Errorf("CRL is expired: %s", crl.NextUpdate)
+	//}
+
+	// Optional 2: Verify that the CRL is signed by the issuer CA certificate.
+	//
+	//// Load the issuer certificate.
+	//issuerCertPEM, err := os.ReadFile(issuerCertFile)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to read issuer certificate file: %w", err)
+	//}
+	//
+	//issuerCertBlock, _ := pem.Decode(issuerCertPEM)
+	//if issuerCertBlock == nil || issuerCertBlock.Type != "CERTIFICATE" {
+	//	return nil, fmt.Errorf("invalid issuer certificate PEM block type: %s", issuerCertBlock.Type)
+	//}
+	//issuerCert, err := x509.ParseCertificate(issuerCertBlock.Bytes)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to parse issuer certificate: %w", err)
+	//}
+	//if err := crl.CheckSignatureFrom(issuerCert); err != nil {
+	//	return nil, fmt.Errorf("failed to verify CRL signature: %w", err)
+	//}
+
+	return crl, nil
 }
 
 func main() {

@@ -9,6 +9,10 @@ issuer: cn=server-ca
 subject: cn=client
 issuer: cn=client-ca
 ---
+subject: cn=revoked-client
+issuer: cn=client-ca
+revoked: true
+---
 subject: cn=server
 issuer: cn=server-sub-ca
 #not_before: 2020-01-01T09:00:00Z
