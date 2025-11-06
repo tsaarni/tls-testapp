@@ -8,10 +8,14 @@ issuer: cn=server-ca
 ---
 subject: cn=client
 issuer: cn=client-ca
+crl_distribution_points:
+  - http://localhost:8080/client-ca-crl.pem
 ---
 subject: cn=revoked-client
 issuer: cn=client-ca
 revoked: true
+crl_distribution_points:
+  - http://localhost:8080/client-ca-crl.pem
 ---
 subject: cn=server
 issuer: cn=server-sub-ca

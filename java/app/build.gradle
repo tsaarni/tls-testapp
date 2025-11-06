@@ -41,6 +41,17 @@ tasks.withType(JavaExec) {
     if (project.hasProperty('tlsDebug')) {
         jvmArgs '-Djavax.net.debug=all'
     }
+
+    // Use custom java.security properties file.
+    //jvmArgs "-Djava.security.properties=${rootDir}/java.security"
+
+    // Enable automatic CRL downloading and checking.
+    // Run web server for CRLDP with
+    //    python3 -m http.server 8080 --directory certs
+    // and connect to server with revoked certificate:
+    //    openssl s_client -connect localhost:14443 -cert certs/revoked-client.pem -key certs/revoked-client-key.pem -CAfile certs/server-ca.pem
+    //jvmArgs '-Dcom.sun.net.ssl.checkRevocation=true'
+    //jvmArgs '-Dcom.sun.security.enableCRLDP=true'
 }
 
 task server(type: JavaExec) {
